@@ -250,6 +250,52 @@
 
     // default categories
     const defaultExpenses = [
+
+            // Firestore data management
+            let appState = { salaries:{}, data:{} };
+        let isLoading = true;
+
+        // Load state from Firestore
+        async function loadStateFromFirestore() {
+                  try {
+                              const docRef = db.collection('budgetData').doc('userState');
+                              const doc = await docRef.get();
+                              if (doc.exists) {
+                                            appState = doc.data();
+                                          } else {
+                                            // Initialize with default data
+                                            appState = { salaries:{}, data:{} };
+                                            await docRef.set(appState);
+                                          }
+                              isLoading = false;
+                            } catch (error) {
+                              console.error('Error loading from Firestore:', error);
+                              appState = { salaries:{}, data:{} };
+                              isLoading = false;
+                            }
+                }
+
+        // Save state to Firestore
+        async function saveStateToFirestore(state) {
+                  try {
+                              const docRef = db.collection('budgetData').doc('userState');
+                              await docRef.set(state);
+                              console.log('Data saved to Firestore');
+                            } catch (error) {
+                              console.error('Error saving to Firestore:', error);
+                            }
+                }
+
+        // Replace old getState function
+        function getState() {
+                  return appState;
+                }
+
+        // Replace old saveState function
+        function saveState(st) {
+                  appState = st;
+                  saveStateToFirestore(st); // Save to Firestore asynchronously
+                }
         { name: "Car EMI", amount: 11800 },
         { name: "Groww EMI", amount: 3514 },
         { name: "PL", amount: 3400 },
@@ -540,12 +586,18 @@
     });
 
     // init
-    buildYearMonth();
-    initCharts();
-    ensureMonthData();
-    loadSalaryInput();
-    rebuildTablesAndCards();
+  // Initialize app with Firestore data
+        (async function initApp() {
+                  await loadStateFromFirestore();
+              
+          buildYearMonth();
+        initCharts();
+        ensureMonthData();
+        loadSalaryInput();
+        rebuildTablesAndCards();
+                })();
 </script>
 </body>
 
 </html>
+
