@@ -587,17 +587,28 @@
 
     // init
   // Initialize app with Firestore data
-        (async function initApp() {
-                  await loadStateFromFirestore();
-              
-          buildYearMonth();
-        initCharts();
-        ensureMonthData();
-        loadSalaryInput();
-        rebuildTablesAndCards();
-                })();
+        // init
+  // Initialize UI immediately so dropdowns and buttons work
+  (function initApp() {
+    buildYearMonth();
+    initCharts();
+    ensureMonthData();
+    loadSalaryInput();
+    rebuildTablesAndCards();
+    
+    // Load Firestore data in background without blocking UI
+    loadStateFromFirestore().then(() => {
+      // After Firestore loads, refresh UI with loaded data
+      buildYearMonth();
+      loadSalaryInput();
+      rebuildTablesAndCards();
+    }).catch((err) => {
+      console.error("Failed to load from Firestore:", err);
+    });
+  })();
 </script>
 </body>
 
 </html>
+
 
