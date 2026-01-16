@@ -5,6 +5,9 @@
 <title>Advanced Budget Tracker</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+      <!-- Firebase SDKs -->
+      <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+      <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore-compat.js"></script>
 <style>
     /* --- same base styles as previous version, shortened here --- */
     *{box-sizing:border-box;margin:0;padding:0}
@@ -226,6 +229,23 @@
 </div>
 
 <script>
+      // Firebase Configuration
+      const firebaseConfig = {
+              apiKey: "AIzaSyDK7FHMu9AK68hEU_0ACXo_r0n6IDNyYBo",
+              authDomain: "budget-tracker-3040d.firebaseapp.com",
+              projectId: "budget-tracker-3040d",
+              storageBucket: "budget-tracker-3040d.firebasestorage.app",
+              messagingSenderId: "880961457484",
+              appId: "1:880961457484:web:8bb2203a3bf8691d4853e9",
+              measurementId: "G-X1R654NDEQ"
+                    };
+
+      // Initialize Firebase
+      const app = firebase.initializeApp(firebaseConfig);
+      const db = firebase.firestore();
+
+      // Make db available globally for the existing code
+      window._budgetDb = db;
     /* === JS: SAME LOGIC AS PREVIOUS DYNAMIC VERSION, WITH SMALL CHANGES === */
 
     // default categories
@@ -527,4 +547,5 @@
     rebuildTablesAndCards();
 </script>
 </body>
+
 </html>
