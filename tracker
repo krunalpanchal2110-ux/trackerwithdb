@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Advanced Budget Tracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    /* --- same base styles as previous version, shortened here --- */
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+        font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        background:linear-gradient(135deg,#667eea,#764ba2);
+        min-height:100vh;
+        padding:12px;
+    }
+    .wrapper{max-width:1100px;margin:0 auto;background:#fff;border-radius:16px;
+        padding:18px 16px 24px;box-shadow:0 12px 32px rgba(0,0,0,.25);}
+    header{text-align:center;margin-bottom:10px;}
+    header h1{font-size:24px;margin-bottom:4px;}
+
+    .year-month-bar{
+        margin-top:6px;display:flex;flex-wrap:wrap;justify-content:center;
+        gap:8px;align-items:center;
+    }
+    .year-month-bar select,.year-month-bar input{
+        padding:6px 10px;border-radius:8px;border:1px solid #cbd5e0;
+        font-size:14px;min-width:90px;
+    }
+    .year-month-bar label{font-size:13px;color:#4a5568;}
+
+    .tabs{
+        display:flex;gap:6px;margin:10px auto 4px;max-width:360px;
+        justify-content:center;
+    }
+    .tab-btn{
+        flex:1;border:none;border-radius:10px 10px 0 0;padding:8px 10px;
+        font-size:13px;cursor:pointer;background:#edf2ff;color:#4c6fff;
+        font-weight:500;touch-action:manipulation;
+    }
+    .tab-btn.active{
+        background:#4c6fff;color:#fff;
+        box-shadow:0 -1px 4px rgba(0,0,0,.1);
+    }
+
+    .top-cards{
+        display:grid;grid-template-columns:repeat(4,1fr);gap:10px;
+        margin:8px 0 6px;
+    }
+    .card{padding:12px 10px;border-radius:10px;color:#fff;
+        background:linear-gradient(135deg,#667eea,#764ba2);}
+    .card:nth-child(2){background:linear-gradient(135deg,#4c6fff,#7f9cf5);}
+    .card:nth-child(3){background:linear-gradient(135deg,#38b2ac,#319795);}
+    .card:nth-child(4){background:linear-gradient(135deg,#f56565,#ed8936);}
+    .card-title{font-size:11px;text-transform:uppercase;opacity:.9;margin-bottom:4px;}
+    .card-value{font-size:18px;font-weight:700;}
+
+    .panel{border-radius:10px;border:1px solid #e2e8f0;padding:10px 10px 8px;}
+    .panel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+    .panel-title{font-size:14px;font-weight:600;}
+    .panel-actions{display:flex;gap:6px;}
+    .btn{border:none;border-radius:999px;padding:4px 10px;font-size:11px;cursor:pointer;
+        background:#edf2ff;color:#4c6fff;touch-action:manipulation;}
+    .btn:hover{background:#e0e7ff;}
+    .icon-btn{border:none;background:none;color:#e53e3e;font-size:16px;cursor:pointer;padding:0;}
+
+    .body-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:8px;margin-top:4px;}
+    table{width:100%;border-collapse:collapse;font-size:13px;}
+    thead{background:#4c6fff;color:#fff;}
+    th,td{padding:6px 6px;border-bottom:1px solid #edf2f7;text-align:left;}
+    th:nth-child(2),td:nth-child(2){text-align:right;}
+    th:nth-child(3),td:nth-child(3){text-align:center;width:60px;}
+    th:nth-child(4),td:nth-child(4){text-align:center;width:60px;}
+    tbody tr:last-child{background:#edf2ff;font-weight:600;}
+    .editable{outline:none;border-radius:4px;padding:2px 3px;}
+    .editable:focus{box-shadow:0 0 0 2px #c3dafe;background:#ebf4ff;}
+    .amount-cell{white-space:nowrap;}
+    .chart-box{display:flex;align-items:center;justify-content:center;padding-top:2px;}
+
+    .summary-wrapper{margin-top:14px;}
+    .summary-header{font-size:14px;font-weight:600;margin-bottom:6px;}
+    .summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+    .summary-card{border-radius:8px;border:1px solid #e2e8f0;padding:6px 8px;font-size:12px;}
+    .summary-label{color:#4a5568;margin-bottom:3px;}
+    .summary-value{font-size:15px;font-weight:700;color:#2d3748;}
+    .summary-value.negative{color:#e53e3e;}
+
+    input[type="checkbox"]{width:18px;height:18px;cursor:pointer;accent-color:#4c6fff;}
+
+    @media(max-width:900px){
+        .top-cards{grid-template-columns:1fr 1fr;}
+        .body-grid{grid-template-columns:1fr;}
+        .summary-grid{grid-template-columns:1fr 1fr;}
+    }
+    @media(max-width:600px){
+        .wrapper{padding:14px 10px 18px;}
+        .top-cards{grid-template-columns:1fr;}
+        header h1{font-size:20px;}
+    }
+</style>
+</head>
+<body>
+<div class="wrapper">
+    <header>
+        <h1>🪙 Advanced Budget Tracker</h1>
+        <div class="year-month-bar">
+            <label for="yearSelect">Year:</label>
+            <select id="yearSelect"></select>
+
+            <label for="monthSelect">Month:</label>
+            <select id="monthSelect"></select>
+
+            <label for="salaryInput">Monthly Salary (₹):</label>
+            <input type="number" id="salaryInput" min="0" inputmode="numeric" placeholder="Enter salary" />
+        </div>
+
+        <!-- ONLY TWO TABS: EXPENSES & INVESTMENTS -->
+        <div class="tabs">
+            <button class="tab-btn active" id="tabExpensesBtn" onclick="showTab('expenses')">📊 Expenses</button>
+            <button class="tab-btn" id="tabInvestBtn" onclick="showTab('investments')">💎 Investments</button>
+        </div>
+    </header>
+
+    <!-- Top cards (same for both tabs) -->
+    <div class="top-cards">
+        <div class="card">
+            <div class="card-title">Monthly Salary</div>
+            <div class="card-value" id="cardSalary">₹0</div>
+        </div>
+        <div class="card">
+            <div class="card-title">Total Expenses</div>
+            <div class="card-value" id="cardExpenses">₹0</div>
+        </div>
+        <div class="card">
+            <div class="card-title">Total Investments</div>
+            <div class="card-value" id="cardInvestments">₹0</div>
+        </div>
+        <div class="card">
+            <div class="card-title">Final Savings</div>
+            <div class="card-value" id="cardSavings">₹0</div>
+        </div>
+    </div>
+
+    <!-- TAB CONTENT: EXPENSES -->
+    <div id="tabExpenses" style="display:block;">
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">📊 Expenses Breakdown</div>
+                <div class="panel-actions">
+                    <button class="btn" onclick="addCategory('expense')">+ Add Expense</button>
+                </div>
+            </div>
+            <div class="body-grid">
+                <div>
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Amount (₹)</th>
+                            <th>Paid</th>
+                            <th>Action</th>
+                        </tr>
+                        </thead>
+                        <tbody id="expenseRows"></tbody>
+                    </table>
+                </div>
+                <div class="chart-box">
+                    <canvas id="expenseChart" width="210" height="210"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB CONTENT: INVESTMENTS -->
+    <div id="tabInvestments" style="display:none;">
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">🎯 Investments Breakdown</div>
+                <div class="panel-actions">
+                    <button class="btn" onclick="addCategory('investment')">+ Add Investment</button>
+                </div>
+            </div>
+            <div class="body-grid">
+                <div>
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Amount (₹)</th>
+                            <th>Paid</th>
+                            <th>Action</th>
+                        </tr>
+                        </thead>
+                        <tbody id="investmentRows"></tbody>
+                    </table>
+                </div>
+                <div class="chart-box">
+                    <canvas id="investmentChart" width="210" height="210"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monthly summary stays common -->
+    <div class="summary-wrapper">
+        <div class="summary-header">📅 Monthly Summary</div>
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="summary-label">Expenses Paid</div>
+                <div class="summary-value" id="sumExpPaid">₹0</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Expenses Pending</div>
+                <div class="summary-value" id="sumExpPending">₹0</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Investments Paid</div>
+                <div class="summary-value" id="sumInvPaid">₹0</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Investments Pending</div>
+                <div class="summary-value" id="sumInvPending">₹0</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* === JS: SAME LOGIC AS PREVIOUS DYNAMIC VERSION, WITH SMALL CHANGES === */
+
+    // default categories
+    const defaultExpenses = [
+        { name: "Car EMI", amount: 11800 },
+        { name: "Groww EMI", amount: 3514 },
+        { name: "PL", amount: 3400 },
+        { name: "Personal", amount: 5000 },
+        { name: "Home", amount: 4000 },
+        { name: "Maintenance", amount: 1200 },
+        { name: "Light bill", amount: 2500 },
+        { name: "Extra", amount: 1921 }
+    ];
+    const defaultInvestments = [
+        { name: "RD + SIP", amount: 15500 },
+        { name: "LIC", amount: 1961 },
+        { name: "Gold SIP", amount: 2500 },
+        { name: "Gold daily 150", amount: 3100 },
+        { name: "Term plan", amount: 1800 },
+        { name: "Silver daily", amount: 3000 }
+    ];
+
+    const months = [
+        "January","February","March","April","May","June",
+        "July","August","September","October","November","December"
+    ];
+
+    // YEAR DROPDOWN: current year up to 2050
+    const years = [];
+    const currentYear = new Date().getFullYear();
+    for(let y=currentYear; y<=2050; y++){ years.push(y); }
+
+    function getState(){
+        const raw = localStorage.getItem("advBudgetStateTabs");
+        if(!raw) return { salaries:{}, data:{} };
+        return JSON.parse(raw);
+    }
+    function saveState(st){ localStorage.setItem("advBudgetStateTabs", JSON.stringify(st)); }
+    function keyYM(y,m){ return y+"-"+m; }
+
+    const yearSelect  = document.getElementById("yearSelect");
+    const monthSelect = document.getElementById("monthSelect");
+    const salaryInput = document.getElementById("salaryInput");
+
+    const expenseRowsTBody    = document.getElementById("expenseRows");
+    const investmentRowsTBody = document.getElementById("investmentRows");
+
+    const cardSalary      = document.getElementById("cardSalary");
+    const cardExpenses    = document.getElementById("cardExpenses");
+    const cardInvestments = document.getElementById("cardInvestments");
+    const cardSavings     = document.getElementById("cardSavings");
+
+    const sumExpPaid     = document.getElementById("sumExpPaid");
+    const sumExpPending  = document.getElementById("sumExpPending");
+    const sumInvPaid     = document.getElementById("sumInvPaid");
+    const sumInvPending  = document.getElementById("sumInvPending");
+
+    function fmt(n){return "₹"+Number(n||0).toLocaleString("en-IN");}
+
+    function buildYearMonth(){
+        years.forEach(y=>{
+            const o=document.createElement("option");o.value=y;o.textContent=y;yearSelect.appendChild(o);
+        });
+        months.forEach((m,i)=>{
+            const o=document.createElement("option");o.value=i;o.textContent=m;monthSelect.appendChild(o);
+        });
+        const today=new Date();
+        yearSelect.value = today.getFullYear();
+        monthSelect.value = today.getMonth();
+    }
+
+    function ensureMonthData(){
+        const st=getState();
+        const k=keyYM(yearSelect.value, monthSelect.value);
+        if(!st.data[k]){
+            st.data[k]={expenses:JSON.parse(JSON.stringify(defaultExpenses)),
+                        investments:JSON.parse(JSON.stringify(defaultInvestments)),
+                        expPaid:{},invPaid:{}};
+            saveState(st);
+        }
+        return getState();
+    }
+
+    let expenseChart, investmentChart;
+    function initCharts(){
+        expenseChart = new Chart(document.getElementById("expenseChart"),{
+            type:"doughnut",
+            data:{labels:[],datasets:[{data:[],backgroundColor:[],borderWidth:0}]},
+            options:{plugins:{legend:{display:false}},cutout:"65%"}
+        });
+        investmentChart = new Chart(document.getElementById("investmentChart"),{
+            type:"doughnut",
+            data:{labels:[],datasets:[{data:[],backgroundColor:[],borderWidth:0}]},
+            options:{plugins:{legend:{display:false}},cutout:"65%"}
+        });
+    }
+    function color(i){
+        const p=["#4c6fff","#63b3ed","#9f7aea","#48bb78","#f6ad55",
+                 "#f56565","#ed64a6","#38b2ac","#718096","#ecc94b"];
+        return p[i%p.length];
+    }
+
+    function loadSalaryInput(){
+        const st=getState();const k=keyYM(yearSelect.value, monthSelect.value);
+        salaryInput.value = st.salaries[k] || "";
+    }
+
+    function rebuildTablesAndCards(){
+        let st=ensureMonthData();
+        const k=keyYM(yearSelect.value, monthSelect.value);
+        const md=st.data[k];
+        const salary=Number(st.salaries[k]||0);
+        cardSalary.textContent=fmt(salary);
+
+        // expenses table
+        expenseRowsTBody.innerHTML="";let totalExp=0;
+        md.expenses.forEach((item,idx)=>{
+            const amt=Number(item.amount)||0;totalExp+=amt;
+            const tr=document.createElement("tr");
+
+            const tdName=document.createElement("td");
+            const nameDiv=document.createElement("div");
+            nameDiv.textContent=item.name;nameDiv.className="editable";nameDiv.contentEditable="true";
+            nameDiv.addEventListener("blur",()=>{
+                const s=getState();s.data[k].expenses[idx].name=nameDiv.textContent.trim()||"Unnamed";
+                saveState(s);rebuildCharts();
+            });
+            tdName.appendChild(nameDiv);
+
+            const tdAmt=document.createElement("td");
+            const amtDiv=document.createElement("div");
+            amtDiv.textContent=item.amount;amtDiv.className="editable";amtDiv.contentEditable="true";
+            amtDiv.addEventListener("blur",()=>{
+                let val=amtDiv.textContent.replace(/[^\d]/g,"");if(val==="")val="0";
+                const s=getState();s.data[k].expenses[idx].amount=Number(val);saveState(s);rebuildTablesAndCards();
+            });
+            tdAmt.className="amount-cell";tdAmt.appendChild(amtDiv);
+
+            const tdChk=document.createElement("td");
+            const chk=document.createElement("input");chk.type="checkbox";chk.checked=!!md.expPaid[idx];
+            chk.addEventListener("change",()=>{
+                const s=getState();s.data[k].expPaid[idx]=chk.checked;saveState(s);updateSummaryAndSavings();
+            });
+            tdChk.appendChild(chk);
+
+            const tdDel=document.createElement("td");
+            const del=document.createElement("button");del.className="icon-btn";del.innerHTML="✕";
+            del.addEventListener("click",()=>{
+                const s=getState();s.data[k].expenses.splice(idx,1);delete s.data[k].expPaid[idx];
+                saveState(s);rebuildTablesAndCards();
+            });
+            tdDel.appendChild(del);
+
+            tr.appendChild(tdName);tr.appendChild(tdAmt);tr.appendChild(tdChk);tr.appendChild(tdDel);
+            expenseRowsTBody.appendChild(tr);
+        });
+        const trT=document.createElement("tr");
+        trT.innerHTML=`<td>TOTAL</td><td class="amount-cell">${fmt(totalExp)}</td><td></td><td></td>`;
+        expenseRowsTBody.appendChild(trT);
+
+        // investments table
+        investmentRowsTBody.innerHTML="";let totalInv=0;
+        md.investments.forEach((item,idx)=>{
+            const amt=Number(item.amount)||0;totalInv+=amt;
+            const tr=document.createElement("tr");
+            const tdName=document.createElement("td");
+            const nameDiv=document.createElement("div");
+            nameDiv.textContent=item.name;nameDiv.className="editable";nameDiv.contentEditable="true";
+            nameDiv.addEventListener("blur",()=>{
+                const s=getState();s.data[k].investments[idx].name=nameDiv.textContent.trim()||"Unnamed";
+                saveState(s);rebuildCharts();
+            });
+            tdName.appendChild(nameDiv);
+
+            const tdAmt=document.createElement("td");
+            const amtDiv=document.createElement("div");
+            amtDiv.textContent=item.amount;amtDiv.className="editable";amtDiv.contentEditable="true";
+            amtDiv.addEventListener("blur",()=>{
+                let val=amtDiv.textContent.replace(/[^\d]/g,"");if(val==="")val="0";
+                const s=getState();s.data[k].investments[idx].amount=Number(val);
+                saveState(s);rebuildTablesAndCards();
+            });
+            tdAmt.className="amount-cell";tdAmt.appendChild(amtDiv);
+
+            const tdChk=document.createElement("td");
+            const chk=document.createElement("input");chk.type="checkbox";chk.checked=!!md.invPaid[idx];
+            chk.addEventListener("change",()=>{
+                const s=getState();s.data[k].invPaid[idx]=chk.checked;saveState(s);updateSummaryAndSavings();
+            });
+            tdChk.appendChild(chk);
+
+            const tdDel=document.createElement("td");
+            const del=document.createElement("button");del.className="icon-btn";del.innerHTML="✕";
+            del.addEventListener("click",()=>{
+                const s=getState();s.data[k].investments.splice(idx,1);delete s.data[k].invPaid[idx];
+                saveState(s);rebuildTablesAndCards();
+            });
+            tdDel.appendChild(del);
+
+            tr.appendChild(tdName);tr.appendChild(tdAmt);tr.appendChild(tdChk);tr.appendChild(tdDel);
+            investmentRowsTBody.appendChild(tr);
+        });
+        const trT2=document.createElement("tr");
+        trT2.innerHTML=`<td>TOTAL</td><td class="amount-cell">${fmt(totalInv)}</td><td></td><td></td>`;
+        investmentRowsTBody.appendChild(trT2);
+
+        cardExpenses.textContent=fmt(totalExp);
+        cardInvestments.textContent=fmt(totalInv);
+
+        rebuildCharts();updateSummaryAndSavings();
+    }
+
+    function rebuildCharts(){
+        const st=ensureMonthData();
+        const k=keyYM(yearSelect.value, monthSelect.value);
+        const md=st.data[k];
+
+        expenseChart.data.labels = md.expenses.map(i=>i.name);
+        expenseChart.data.datasets[0].data = md.expenses.map(i=>Number(i.amount)||0);
+        expenseChart.data.datasets[0].backgroundColor = md.expenses.map((_,i)=>color(i));
+        expenseChart.update();
+
+        investmentChart.data.labels = md.investments.map(i=>i.name);
+        investmentChart.data.datasets[0].data = md.investments.map(i=>Number(i.amount)||0);
+        investmentChart.data.datasets[0].backgroundColor = md.investments.map((_,i)=>color(i));
+        investmentChart.update();
+    }
+
+    function updateSummaryAndSavings(){
+        const st=ensureMonthData();
+        const k=keyYM(yearSelect.value, monthSelect.value);
+        const md=st.data[k];
+        const salary=Number(st.salaries[k]||0);
+
+        let expPaid=0,expTotal=0;
+        md.expenses.forEach((item,i)=>{
+            const amt=Number(item.amount)||0;expTotal+=amt;
+            if(md.expPaid[i]) expPaid+=amt;
+        });
+        let invPaid=0,invTotal=0;
+        md.investments.forEach((item,i)=>{
+            const amt=Number(item.amount)||0;invTotal+=amt;
+            if(md.invPaid[i]) invPaid+=amt;
+        });
+
+        sumExpPaid.textContent=fmt(expPaid);
+        sumExpPending.textContent=fmt(expTotal-expPaid);
+        sumInvPaid.textContent=fmt(invPaid);
+        sumInvPending.textContent=fmt(invTotal-invPaid);
+
+        const finalSavings = salary - expTotal - invTotal;
+        cardSavings.textContent = fmt(finalSavings);
+        if(finalSavings<0) cardSavings.classList.add("negative");
+        else cardSavings.classList.remove("negative");
+    }
+
+    function addCategory(type){
+        const st=ensureMonthData();
+        const k=keyYM(yearSelect.value, monthSelect.value);
+        if(type==="expense"){
+            st.data[k].expenses.push({name:"New Expense",amount:0});
+        }else{
+            st.data[k].investments.push({name:"New Investment",amount:0});
+        }
+        saveState(st);rebuildTablesAndCards();
+    }
+
+    // tab handling
+    function showTab(which){
+        const eTab=document.getElementById("tabExpenses");
+        const iTab=document.getElementById("tabInvestments");
+        const eBtn=document.getElementById("tabExpensesBtn");
+        const iBtn=document.getElementById("tabInvestBtn");
+        if(which==="expenses"){
+            eTab.style.display="block";iTab.style.display="none";
+            eBtn.classList.add("active");iBtn.classList.remove("active");
+        }else{
+            eTab.style.display="none";iTab.style.display="block";
+            eBtn.classList.remove("active");iBtn.classList.add("active");
+        }
+    }
+
+    yearSelect.addEventListener("change",()=>{
+        ensureMonthData();loadSalaryInput();rebuildTablesAndCards();
+    });
+    monthSelect.addEventListener("change",()=>{
+        ensureMonthData();loadSalaryInput();rebuildTablesAndCards();
+    });
+    salaryInput.addEventListener("change",()=>{
+        const st=getState();const k=keyYM(yearSelect.value, monthSelect.value);
+        st.salaries[k]=Number(salaryInput.value||0);saveState(st);rebuildTablesAndCards();
+    });
+
+    // init
+    buildYearMonth();
+    initCharts();
+    ensureMonthData();
+    loadSalaryInput();
+    rebuildTablesAndCards();
+</script>
+</body>
+</html>
